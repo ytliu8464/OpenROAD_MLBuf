@@ -152,15 +152,15 @@ void RepairDesign::repairDesign(
     bool store_buffered_trees_flag)
 {
   if (store_buffered_trees_flag) {
-    // clean
-    std::string runtime_file = std::getenv("TIMERSZ");
-    std::ofstream ofs(runtime_file, std::ios::trunc);
-    if (!ofs) {
-        std::cerr << "Failed to open file.\n";
-        return;
-    }
-    std::cout << "File recordORTime cleared successfully.\n";
-    ofs.close();
+    // // clean
+    // std::string runtime_file = std::getenv("TIMERSZ");
+    // std::ofstream ofs(runtime_file, std::ios::trunc);
+    // if (!ofs) {
+    //     std::cerr << "Failed to open file.\n";
+    //     return;
+    // }
+    // std::cout << "File recordORTime cleared successfully.\n";
+    // ofs.close();
     repairDesign_update(max_wire_length,
                         slew_margin,
                         cap_margin,
@@ -181,16 +181,16 @@ void RepairDesign::repairDesign(
 
     // YL: save prob nets here for MLBuf integration
     saveProbNets();
-    // std::string runtime_file = std::getenv("TIMERSZ");
-    std::ofstream file(runtime_file, std::ios::app);
-      if (file.is_open()) {
-          file << inserted_buffer_count_ << "\n"; // Append the number and a newline
-          file.close();
-          std::cout << "inserted_buffer_count_ appended to file successfully." << std::endl;
-      } else {
-          std::cerr << "Unable to open recordORTime.txt" << std::endl;
-          return; // error code
-      }
+    // // std::string runtime_file = std::getenv("TIMERSZ");
+    // std::ofstream file(runtime_file, std::ios::app);
+    //   if (file.is_open()) {
+    //       file << inserted_buffer_count_ << "\n"; // Append the number and a newline
+    //       file.close();
+    //       std::cout << "inserted_buffer_count_ appended to file successfully." << std::endl;
+    //   } else {
+    //       std::cerr << "Unable to open recordORTime.txt" << std::endl;
+    //       return; // error code
+    //   }
  
     return;
   }
@@ -2393,21 +2393,21 @@ void RepairDesign::repairNet_update(Net* net,
             auto tree = copied_tree;
            
             BufferedTreeNodePtr root = tree->getRoot();
-            if (root) {
-              dbNet* net_db = db_network_->staToDb(tree->getNet());
-              std::string net_name = net_db->getName();
-              int node_count = countNodes(root);
-              std::string runtime_file = std::getenv("TIMERSZ");
-              std::ofstream file(runtime_file, std::ios::app);
-              if (file.is_open()) {
-                  file << net_name << "," <<node_count<<","<< OpenSTADuration.count() << ","; // Append the number and a newline
-                  file.close();
-                  std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
-              } else {
-                  std::cerr << "Unable to open recordORTime.txt" << std::endl;
-                  return; // error code
-              }
-            }
+            // if (root) {
+            //   dbNet* net_db = db_network_->staToDb(tree->getNet());
+            //   std::string net_name = net_db->getName();
+            //   int node_count = countNodes(root);
+            //   std::string runtime_file = std::getenv("TIMERSZ");
+            //   std::ofstream file(runtime_file, std::ios::app);
+            //   if (file.is_open()) {
+            //       file << net_name << "," <<node_count<<","<< OpenSTADuration.count() << ","; // Append the number and a newline
+            //       file.close();
+            //       std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
+            //   } else {
+            //       std::cerr << "Unable to open recordORTime.txt" << std::endl;
+            //       return; // error code
+            //   }
+            // }
               
 
             
@@ -2438,18 +2438,18 @@ void RepairDesign::repairNet_update(Net* net,
             if (resize_drvr) {
               resize_count_ += resizer_->resizeToTargetSlew(drvr_pin);
             }
-            auto repairEd = std::chrono::high_resolution_clock::now();
-            auto repairDuration = std::chrono::duration_cast<std::chrono::milliseconds>(repairEd - repairSt);
-            std::string runtime_file2 = std::getenv("TIMERSZ");
-            std::ofstream file2(runtime_file2, std::ios::app);
-            if (file2.is_open()) {
-                file2 << repairDuration.count() << "\n";  
-                file2.close();
-                std::cout << "repairDuration appended to file successfully." << std::endl;
-            } else {
-                std::cerr << "Unable to open recordORTime.txt (when writing repairDuration)" << std::endl;
-                return;
-            }
+            // auto repairEd = std::chrono::high_resolution_clock::now();
+            // auto repairDuration = std::chrono::duration_cast<std::chrono::milliseconds>(repairEd - repairSt);
+            // std::string runtime_file2 = std::getenv("TIMERSZ");
+            // std::ofstream file2(runtime_file2, std::ios::app);
+            // if (file2.is_open()) {
+            //     file2 << repairDuration.count() << "\n";  
+            //     file2.close();
+            //     std::cout << "repairDuration appended to file successfully." << std::endl;
+            // } else {
+            //     std::cerr << "Unable to open recordORTime.txt (when writing repairDuration)" << std::endl;
+            //     return;
+            // }
 
           }
         }

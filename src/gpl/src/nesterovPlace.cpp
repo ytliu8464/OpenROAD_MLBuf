@@ -498,12 +498,14 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           std::string prob_net = std::getenv("INPUT"); // save all problematic nets
           std::string output_file = std::getenv("OUTPUT");
           std::string mlbuf_time_file = std::getenv("TIMEMLBuf");
+          const char* env_cluster = std::getenv("CLUSTERNUM");
           log_->report("[INFO] MLBuf is used");
           std::string cmd = "python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer.py " 
                   "--model "+ model_pt + " " 
                   "--input "+ prob_net + " " 
                   "--output "+ output_file + " "
-                  "--timeMLBuf " + mlbuf_time_file;
+                  "--timeMLBuf " + mlbuf_time_file +" "
+                  "--clusterNum " + env_cluster;
           int ret = std::system(cmd.c_str());
           if (ret != 0) {
             log_->report("mlbuf_infer.py failed with code {}", ret);
@@ -576,15 +578,15 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           // exit(1);
         }
         // clean
-        std::ofstream ofs(bufferCSV, std::ios::trunc);
-        if (!ofs) {
-            std::cerr << "Failed to open file.\n";
-            return 1;
-        }
-        std::cout << "File content (predicted buffers) cleared successfully.\n";
-        ofs.close();
+        // std::ofstream ofs(bufferCSV, std::ios::trunc);
+        // if (!ofs) {
+        //     std::cerr << "Failed to open file.\n";
+        //     return 1;
+        // }
+        // std::cout << "File content (predicted buffers) cleared successfully.\n";
+        // ofs.close();
     
-        log_->report("[INFO] MLBuf intergration Ends ....");
+        // log_->report("[INFO] MLBuf intergration Ends ....");
       }
       
       // -----------------------------------------------------
@@ -638,16 +640,16 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       auto netlistModifyDuration = std::chrono::duration_cast<std::chrono::milliseconds>(netlistModifyEt - netlistModifySt);
       // Open the file in append mode
       std::string runtime_file = std::getenv("TIMERSZ");
-      std::ofstream file(runtime_file, std::ios::app);
+      // std::ofstream file(runtime_file, std::ios::app);
 
-      if (file.is_open()) {
-          file << netlistModifyDuration.count() << std::endl; // Append the number and a newline
-          file.close();
-          std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
-      } else {
-          std::cerr << "Unable to open recordORTime.txt" << std::endl;
-          return 1; // error code
-      }
+      // if (file.is_open()) {
+      //     file << netlistModifyDuration.count() << std::endl; // Append the number and a newline
+      //     file.close();
+      //     std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
+      // } else {
+      //     std::cerr << "Unable to open recordORTime.txt" << std::endl;
+      //     return 1; // error code
+      // }
       // exit(0); // YL MLBuf, just for test
 
     }
