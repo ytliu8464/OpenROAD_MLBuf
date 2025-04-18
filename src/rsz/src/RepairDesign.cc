@@ -2466,7 +2466,7 @@ void RepairDesign::repairNet_update(Net* net,
       // std::cout << "End Post Tree Print\n";
       // std::cout << "Save Post Tree Print\n";
       repaired_net_count++;
-      std::cout << "------------Repaired net count------------- " << repaired_net_count << std::endl;
+      // std::cout << "------------Repaired net count------------- " << repaired_net_count << std::endl;
     }
   }
   store_buffered_trees_flag_ = false;
@@ -2668,7 +2668,7 @@ void RepairDesign::makeRepeater_update(const char* reason,
   repeater_fanout = resizer_->portFanoutLoad(buffer_input_port);
   repeater_max_slew = bufferInputMaxSlew(buffer_cell, corner_);
   
-  logger_->report("--------Add a buffer and the buffer count is ----" + std::to_string(inserted_buffer_count_));
+  // logger_->report("--------Add a buffer and the buffer count is ----" + std::to_string(inserted_buffer_count_));
   // Save original features
   if (buffer_order_count_ == 0){
     BufferedTreePtr& tree = buffered_trees_post_.back(); //YL: get the last tree

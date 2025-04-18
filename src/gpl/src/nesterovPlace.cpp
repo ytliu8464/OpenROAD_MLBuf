@@ -578,15 +578,15 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           // exit(1);
         }
         // clean
-        // std::ofstream ofs(bufferCSV, std::ios::trunc);
-        // if (!ofs) {
-        //     std::cerr << "Failed to open file.\n";
-        //     return 1;
-        // }
-        // std::cout << "File content (predicted buffers) cleared successfully.\n";
-        // ofs.close();
+        std::ofstream ofs(bufferCSV, std::ios::trunc);
+        if (!ofs) {
+            std::cerr << "Failed to open bufferCSV.\n";
+            return 1;
+        }
+        std::cout << "File content (predicted buffers) cleared successfully.\n";
+        ofs.close();
     
-        // log_->report("[INFO] MLBuf intergration Ends ....");
+        log_->report("[INFO] MLBuf intergration Ends ....");
       }
       
       // -----------------------------------------------------
