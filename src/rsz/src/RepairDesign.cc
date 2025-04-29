@@ -184,14 +184,13 @@ void RepairDesign::repairDesign(
     // std::string runtime_file = std::getenv("TIMERSZ");
     std::ofstream file(runtime_file, std::ios::app);
       if (file.is_open()) {
-          file << inserted_buffer_count_ << "\n"; // Append the number and a newline
+          file << "Total buffer number: " << inserted_buffer_count_ << "\n"; // Append the number and a newline
           file.close();
           std::cout << "inserted_buffer_count_ appended to file successfully." << std::endl;
       } else {
           std::cerr << "Unable to open recordORTime.txt" << std::endl;
           return; // error code
       }
- 
     return;
   }
   
@@ -2208,7 +2207,21 @@ void RepairDesign::repairDesign_update(
         && !drvr->isConstant()) {
       // To do: create a buffered tree to store the original net
       float max_cap = INF;
+      auto createPreBTreeSt = std::chrono::high_resolution_clock::now();
       createPreBufferedTree(net, drvr_pin, max_cap);
+      auto createPreBTreeEt = std::chrono::high_resolution_clock::now();
+      auto createPreBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPreBTreeEt - createPreBTreeSt);
+      std::string runtime_file = std::getenv("TIMERSZ");
+      std::ofstream file(runtime_file, std::ios::app);
+      if (file.is_open()) {
+          file << createPreBTreeDuration.count() <<","; // Append the number and a newline
+          file.close();
+          std::cout << "createPreBTreeDuration appended to file successfully." << std::endl;
+      } else {
+          std::cerr << "Unable to open recordORTime.txt (createPreBTreeDuration)" << std::endl;
+          return; // error code
+      }
+      
       // std::cout << "Begin Pre Tree Print\n";
       // buffered_trees_pre_.back()->printTree();
       // std::cout << "End Pre Tree Print\n";
@@ -2333,7 +2346,11 @@ void RepairDesign::repairNet_update(Net* net,
     }
     // For tristate nets all we can do is resize the driver.
     if (!resizer_->isTristateDriver(drvr_pin)) {
+      auto bnetSt = std::chrono::high_resolution_clock::now();
       BufferedNetPtr bnet = resizer_->makeBufferedNetSteiner(drvr_pin, corner);
+      auto bnetEt = std::chrono::high_resolution_clock::now();
+      auto bnetDuration = std::chrono::duration_cast<std::chrono::milliseconds>(bnetEt - bnetSt);
+
       if (bnet) {
         resizer_->ensureWireParasitic(drvr_pin, net);
         graph_delay_calc_->findDelays(drvr);
@@ -2384,7 +2401,7 @@ void RepairDesign::repairNet_update(Net* net,
             // ----------------------------------------------------------------
             // YL: recored problematic nets to files for MLBuf / hacky processing
             auto OpenSTAEnd = std::chrono::high_resolution_clock::now();
-            auto OpenSTADuration = std::chrono::duration_cast<std::chrono::milliseconds>(OpenSTAEnd - OpenSTASt);
+            auto OpenSTADuration = std::chrono::duration_cast<std::chrono::milliseconds>(OpenSTAEnd - OpenSTASt) - bnetDuration;
             
             BufferedTreePtr& problematic_net = buffered_trees_pre_.back();
             auto copied_tree = std::make_shared<rsz::BufferedTree>(*problematic_net); // Make a deep copy
@@ -2400,11 +2417,11 @@ void RepairDesign::repairNet_update(Net* net,
               std::string runtime_file = std::getenv("TIMERSZ");
               std::ofstream file(runtime_file, std::ios::app);
               if (file.is_open()) {
-                  file << net_name << "," <<node_count<<","<< OpenSTADuration.count() << ","; // Append the number and a newline
+                  file << net_name << "," <<node_count<<","<< OpenSTADuration.count() << ","<< bnetDuration.count() <<","; // Append the number and a newline
                   file.close();
-                  std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
+                  std::cout << "openSTA and bnetduration appended to file successfully." << std::endl;
               } else {
-                  std::cerr << "Unable to open recordORTime.txt" << std::endl;
+                  std::cerr << "Unable to open recordORTime.txt (openSTA and bnet)" << std::endl;
                   return; // error code
               }
             }
@@ -2443,7 +2460,7 @@ void RepairDesign::repairNet_update(Net* net,
             std::string runtime_file2 = std::getenv("TIMERSZ");
             std::ofstream file2(runtime_file2, std::ios::app);
             if (file2.is_open()) {
-                file2 << repairDuration.count() << "\n";  
+                file2 << repairDuration.count() << ",";  
                 file2.close();
                 std::cout << "repairDuration appended to file successfully." << std::endl;
             } else {
@@ -2680,6 +2697,7 @@ void RepairDesign::makeRepeater_update(const char* reason,
   }
   buffer_order_count_++; //YL: track the feature updating when insert a new buffer
   // logger_->report("Begin createPostBufferedTree...\n");
+  auto createPostBTreeSt = std::chrono::high_resolution_clock::now();
   createPostBufferedTree(
     reason,
     buffer, 
@@ -2697,6 +2715,18 @@ void RepairDesign::makeRepeater_update(const char* reason,
   // std::cout<<"Start testing buffered tree...\n";
   // testBufferedTree(repeater_in_pin,repeater_out_pin, in_net, out_net);
   // std::cout<<"End testing buffered tree...\n";
+  auto createPostBTreeEt = std::chrono::high_resolution_clock::now();
+  auto createPostBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPostBTreeEt - createPostBTreeSt);
+  std::string runtime_file = std::getenv("TIMERSZ");
+  std::ofstream file(runtime_file, std::ios::app);
+  if (file.is_open()) {
+      file << createPostBTreeDuration.count() <<"\n"; // Append the number and a newline
+      file.close();
+      std::cout << "createPostBTreeDuration appended to file successfully." << std::endl;
+  } else {
+      std::cerr << "Unable to open recordORTime.txt (createPostBTreeDuration)" << std::endl;
+      return; // error code
+  }
   
   load_pins.clear();
   load_pins.push_back(repeater_in_pin);

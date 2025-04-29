@@ -498,12 +498,21 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           std::string prob_net = std::getenv("INPUT"); // save all problematic nets
           std::string output_file = std::getenv("OUTPUT");
           std::string mlbuf_time_file = std::getenv("TIMEMLBuf");
+          std::string env_cluster = std::getenv("CLUSTERNUM");
           log_->report("[INFO] MLBuf is used");
-          std::string cmd = "python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer.py " 
-                  "--model "+ model_pt + " " 
-                  "--input "+ prob_net + " " 
-                  "--output "+ output_file + " "
-                  "--timeMLBuf " + mlbuf_time_file;
+          // std::string cmd = "/home/tool/anaconda3/envs/zhiang/bin/python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer_dgx.py " 
+          //         "--model "+ model_pt + " " 
+          //         "--input "+ prob_net + " " 
+          //         "--output "+ output_file + " "
+          //         "--timeMLBuf " + mlbuf_time_file;
+          
+          std::string cmd = "/home/tool/anaconda3/envs/zhiang/bin/python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer_time.py "; 
+          cmd += "--model "+ model_pt + " "; 
+          cmd += "--input "+ prob_net + " "; 
+          cmd += "--output "+ output_file + " ";
+          cmd += "--timeMLBuf " + mlbuf_time_file + " ";
+          cmd += "--clusterNum " + env_cluster + " ";
+          cmd += "--cudaID " + std::string(std::getenv("CUDAID")) + " ";
           int ret = std::system(cmd.c_str());
           if (ret != 0) {
             log_->report("mlbuf_infer.py failed with code {}", ret);
@@ -512,7 +521,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
             log_->report("[INFO] Hack-y baseline is used");
             const std::string prob_net = std::getenv("INPUT"); // save all problematic nets
             std::string output_file = std::getenv("OUTPUT");
-            std::string cmd = "python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/integrate_OR/hacky_baseline.py " 
+            std::string cmd = "/home/tool/anaconda3/envs/zhiang/bin/python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/integrate_OR/hacky_baseline.py " 
                     "--input " + prob_net + " " 
                     "--output " + output_file;
             int ret = std::system(cmd.c_str());
@@ -543,11 +552,14 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         // exit(0);
 
         // (3) Integration manner: bin 
+        
         const std::string default_manner = "bin";  
         const char* mlbuf_integration = std::getenv("INTEGRATION_MANNER");
         std::string mlbuf_integration_manner = (mlbuf_integration != nullptr) ? std::string(mlbuf_integration) : default_manner;
+        
         if (mlbuf_integration_manner == "bin") {
           log_->report("[INFO] Integration manner: reduce bin capacity");
+          auto binUpdateSt = std::chrono::high_resolution_clock::now();
             for (auto& nesterov : nbVec_) {
               nesterov->setTargetDensity(
                 static_cast<float>(buf_total_area
@@ -560,7 +572,22 @@ int NesterovPlace::doNesterovPlace(int start_iter)
               // nesterov->updateAreas();
               // nesterov->updateDensitySize();
             }
+          auto binUpdateEt = std::chrono::high_resolution_clock::now();
+          auto binUpdateDuration = std::chrono::duration_cast<std::chrono::milliseconds>(binUpdateEt - binUpdateSt);
+           // Open the file in append mode
+          std::string runtime_file = std::getenv("TIMEMLBuf");
+          std::ofstream file(runtime_file, std::ios::app);
+
+          if (file.is_open()) {
+              file << "Update bin density time: "<<binUpdateDuration.count() << std::endl; // Append the number and a newline
+              file.close();
+              std::cout << "binUpdateDuration appended to file successfully." << std::endl;
+          } else {
+              std::cerr << "Unable to open binUpdate_TIMEMLBuf.txt" << std::endl;
+              return 1; // error code
+          }
         } 
+
         // else if (mlbuf_integration_manner == "cell") {
         //   log_->report("[INFO] Integration manner: cell inflation");
         //     for (auto& nesterov : nbVec_) {
@@ -641,15 +668,14 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       std::ofstream file(runtime_file, std::ios::app);
 
       if (file.is_open()) {
-          file << netlistModifyDuration.count() << std::endl; // Append the number and a newline
+          file << "NetlitModifyDuration: "<<netlistModifyDuration.count() << std::endl; // Append the number and a newline
           file.close();
           std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
       } else {
           std::cerr << "Unable to open recordORTime.txt" << std::endl;
           return 1; // error code
       }
-      // exit(0); // YL MLBuf, just for test
-
+      exit(0); // YL MLBuf, just for test
     }
     
 
