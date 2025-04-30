@@ -50,3 +50,4 @@ debian/changelog
 debian/files
 debian/openroad
 obj-x86_64-linux-gnu/
+/home/dgx_projects/MLBuf/pdn-copy-integration-or/OpenROAD/build_os8*
