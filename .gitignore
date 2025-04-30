@@ -1,3 +1,6 @@
+./.git/objects/pack/pack-c7e2081a5b1f30a3d6ef4152e745fbd95dcdabc1.pack
+./build_os8/src/openroad
+./build_os8.old/src/openroad
 # Put tool specific ignores in the tool directory, not here.
 
 *.o
