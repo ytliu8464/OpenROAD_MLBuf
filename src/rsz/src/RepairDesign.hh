@@ -317,7 +317,8 @@ class RepairDesign : dbStaState
                  int& slew_violations,
                  int& cap_violations,
                  int& fanout_violations,
-                 int& length_violations);
+                 int& length_violations,
+                 double duration);
 
 
   void makeRepeater_update(const char* reason,

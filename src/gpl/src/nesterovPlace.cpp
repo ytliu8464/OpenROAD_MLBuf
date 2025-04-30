@@ -506,8 +506,19 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           std::string env_cluster = std::getenv("CLUSTERNUM");
           std::cout << "[INFO] env_cluster = " << env_cluster << std::endl;
           
+          // Append the new iteration to the file
+          std::ofstream file(mlbuf_time_file, std::ios::app);
+          if (file.is_open()) {
+            file << "New iteration" <<  "\n"; 
+            file.close();
+            std::cout << "New iteration appended to file successfully." << std::endl;
+          } else {
+              std::cerr << "Unable to open recordORTime.txt (new start)" << std::endl;
+              return 0; // error code
+          }
+          
           log_->report("[INFO] MLBuf is used");
-          std::string cmd = "/home/tool/anaconda3/envs/zhiang/bin/python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer.py "; 
+          std::string cmd = "/home/tool/anaconda3/envs/zhiang/bin/python /home/dgx_projects/MLBuf/virtual_buffer/MLBuf/mlbuf_infer_time.py "; 
           cmd += "--model "+ model_pt + " "; 
           cmd += "--input "+ prob_net + " "; 
           cmd += "--output "+ output_file + " ";
@@ -560,6 +571,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         std::string mlbuf_integration_manner = (mlbuf_integration != nullptr) ? std::string(mlbuf_integration) : default_manner;
         if (mlbuf_integration_manner == "bin") {
           log_->report("[INFO] Integration manner: reduce bin capacity");
+          auto binUpdateSt = std::chrono::high_resolution_clock::now();
             for (auto& nesterov : nbVec_) {
               nesterov->setTargetDensity(
                 static_cast<float>(buf_total_area
@@ -571,6 +583,22 @@ int NesterovPlace::doNesterovPlace(int start_iter)
               // nbc_->resetDeltaArea();
               // nesterov->updateAreas();
               // nesterov->updateDensitySize();
+            }
+            auto binUpdateEt = std::chrono::high_resolution_clock::now();
+            auto binUpdateDuration = std::chrono::duration_cast<std::chrono::milliseconds>(binUpdateEt - binUpdateSt);
+            std::chrono::duration<double, std::milli> binUpdateDuration_sec = binUpdateDuration;
+             // Open the file in append mode
+            std::string runtime_file = std::getenv("TIMEMLBuf");
+            std::ofstream file(runtime_file, std::ios::app);
+
+  
+            if (file.is_open()) {
+                file << "Update bin density time: "<<binUpdateDuration_sec.count() << std::endl; // Append the number and a newline
+                file.close();
+                std::cout << "binUpdateDuration appended to file successfully." << std::endl;
+            } else {
+                std::cerr << "Unable to open binUpdate_TIMEMLBuf.txt" << std::endl;
+                return 1; // error code
             }
         } 
         // else if (mlbuf_integration_manner == "cell") {
@@ -648,20 +676,20 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       auto netlistModifyEt = std::chrono::high_resolution_clock::now();
       // ---------- YL MLBuf, just for test ---------
       auto netlistModifyDuration = std::chrono::duration_cast<std::chrono::milliseconds>(netlistModifyEt - netlistModifySt);
+      auto netlistModifyDuration_sec = std::chrono::duration<double, std::milli>(netlistModifyDuration);
       // Open the file in append mode
-      // std::string runtime_file = std::getenv("TIMERSZ");
-      // std::ofstream file(runtime_file, std::ios::app);
+      std::string runtime_file = std::getenv("TIMERSZ");
+      std::ofstream file(runtime_file, std::ios::app);
 
-      // if (file.is_open()) {
-      //     file << netlistModifyDuration.count() << std::endl; // Append the number and a newline
-      //     file.close();
-      //     std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
-      // } else {
-      //     std::cerr << "Unable to open recordORTime.txt" << std::endl;
-      //     return 1; // error code
-      // }
-      // exit(0); // YL MLBuf, just for test
-
+      if (file.is_open()) {
+          file << netlistModifyDuration_sec.count() << std::endl; // Append the number and a newline
+          file.close();
+          std::cout << "netlistModifyDuration appended to file successfully." << std::endl;
+      } else {
+          std::cerr << "Unable to open recordORTime.txt" << std::endl;
+          return 1; // error code
+      }
+      exit(0); // YL MLBuf, just for test
     }
     
 

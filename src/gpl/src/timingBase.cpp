@@ -43,6 +43,7 @@
 #include "rsz/Resizer.hh"
 #include "sta/Fuzzy.hh"
 #include "utl/Logger.h"
+#include <fstream>
 
 namespace gpl {
 
@@ -220,6 +221,8 @@ bool TimingBase::updateGNetWeights_update(bool run_journal_restore)
 {
   rs_->findResizeSlacks(run_journal_restore);
 
+  auto netWeightSt = std::chrono::high_resolution_clock::now();
+
   if (!run_journal_restore) {
     nbc_->fixPointers();
   }
@@ -285,6 +288,18 @@ bool TimingBase::updateGNetWeights_update(bool run_journal_restore)
                  net_slack,
                  gNet->totalWeight());
     }
+  }
+  auto netWeightEd = std::chrono::high_resolution_clock::now();
+  auto netWeightDuration = std::chrono::duration_cast<std::chrono::milliseconds>(netWeightEd - netWeightSt);
+  std::chrono::duration<double, std::milli> duration_sec = netWeightDuration;
+  std::string runtime_file2 = std::getenv("TIMERSZ");
+  std::ofstream file2(runtime_file2, std::ios::app);
+  if (file2.is_open()) {
+      file2 << duration_sec.count() << "\n";  
+      file2.close();
+      std::cout << "netWeightDuration appended to file successfully." << std::endl;
+  } else {
+      std::cerr << "Unable to open recordORTime.txt (netWeightDuration)" << std::endl;
   }
 
   log_->report("Timing-driven: weighted {} nets.", weighted_net_count);
