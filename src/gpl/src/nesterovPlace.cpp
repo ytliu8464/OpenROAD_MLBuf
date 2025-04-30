@@ -689,7 +689,7 @@ int NesterovPlace::doNesterovPlace(int start_iter)
           std::cerr << "Unable to open recordORTime.txt" << std::endl;
           return 1; // error code
       }
-      exit(0); // YL MLBuf, just for test
+      // exit(0); // YL MLBuf, just for test
     }
     
 

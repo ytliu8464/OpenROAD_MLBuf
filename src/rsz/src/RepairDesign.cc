@@ -194,6 +194,7 @@ void RepairDesign::repairDesign(
     // std::cout << "#buffered net (test): " << repaired_net_count << std::endl;
     // std::cout << "#buffer: " << inserted_buffer_count_ << std::endl;
 
+  
     // YL: save prob nets here for MLBuf integration
     saveProbNets();
     // // std::string runtime_file = std::getenv("TIMERSZ");
@@ -2226,8 +2227,9 @@ void RepairDesign::repairDesign_update(
       auto createPreBTreeSt = std::chrono::high_resolution_clock::now();
       createPreBufferedTree(net, drvr_pin, max_cap);
       auto createPreBTreeEt = std::chrono::high_resolution_clock::now();
-      auto createPreBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPreBTreeEt - createPreBTreeSt);
-      std::chrono::duration<double, std::milli> preBTreeDuration_sec = createPreBTreeDuration;
+      std::chrono::duration<double, std::milli> preBTreeDuration = createPreBTreeEt - createPreBTreeSt;
+      // auto createPreBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPreBTreeEt - createPreBTreeSt);
+      // std::chrono::duration<double, std::milli> preBTreeDuration_sec = createPreBTreeDuration;
       // std::cout << "Begin Pre Tree Print\n";
       // buffered_trees_pre_.back()->printTree();
       // std::cout << "End Pre Tree Print\n";
@@ -2246,7 +2248,7 @@ void RepairDesign::repairDesign_update(
                 cap_violations,
                 fanout_violations,
                 length_violations,
-                preBTreeDuration_sec.count());
+                preBTreeDuration.count());
     }
     if (debug) {
       logger_->setDebugLevel(RSZ, "repair_net", 0);
@@ -2357,8 +2359,9 @@ void RepairDesign::repairNet_update(Net* net,
       auto bnetSt = std::chrono::high_resolution_clock::now();
       BufferedNetPtr bnet = resizer_->makeBufferedNetSteiner(drvr_pin, corner);
       auto bnetEt = std::chrono::high_resolution_clock::now();
-      auto bnetDuration = std::chrono::duration_cast<std::chrono::milliseconds>(bnetEt - bnetSt);
-      std::chrono::duration<double, std::milli> bnetDuration_sec = bnetDuration;
+      std::chrono::duration<double, std::milli> bnetDuration = bnetEt - bnetSt;
+      // auto bnetDuration = std::chrono::duration_cast<std::chrono::milliseconds>(bnetEt - bnetSt);
+      // std::chrono::duration<double, std::milli> bnetDuration_sec = bnetDuration;
       if (bnet) {
         resizer_->ensureWireParasitic(drvr_pin, net);
         graph_delay_calc_->findDelays(drvr);
@@ -2409,8 +2412,9 @@ void RepairDesign::repairNet_update(Net* net,
             // ----------------------------------------------------------------
             // YL: recored problematic nets to files for MLBuf / hacky processing
             auto OpenSTAEnd = std::chrono::high_resolution_clock::now();
-            auto OpenSTADuration = std::chrono::duration_cast<std::chrono::milliseconds>(OpenSTAEnd - OpenSTASt) - bnetDuration;
-            std::chrono::duration<double, std::milli> OpenSTADuration_sec = OpenSTADuration;
+            std::chrono::duration<double, std::milli> OpenSTADuration = (OpenSTAEnd - OpenSTASt) - bnetDuration;
+            // auto OpenSTADuration = std::chrono::duration_cast<std::chrono::milliseconds>(OpenSTAEnd - OpenSTASt) - bnetDuration;
+            // std::chrono::duration<double, std::milli> OpenSTADuration_sec = OpenSTADuration;
             
             BufferedTreePtr& problematic_net = buffered_trees_pre_.back();
             auto copied_tree = std::make_shared<rsz::BufferedTree>(*problematic_net); // Make a deep copy
@@ -2426,13 +2430,14 @@ void RepairDesign::repairNet_update(Net* net,
               std::string runtime_file = std::getenv("TIMERSZ");
               std::ofstream file(runtime_file, std::ios::app);
               if (file.is_open()) {
-                file << net_name << "," <<node_count<<","<<createPreBTreeDuration<<","<< OpenSTADuration_sec.count() << ","<< bnetDuration_sec.count() <<","; 
+                file <<"\n"<< net_name << "," <<node_count<<","<<createPreBTreeDuration<<","
+                << OpenSTADuration.count() << ","<< bnetDuration.count() <<","; 
                 file.close();
                 std::cout << "openSTA and bnetduration appended to file successfully." << std::endl;
-            }  else {
-                  std::cerr << "Unable to open recordORTime.txt (openSTA and bnet)" << std::endl;
-                  return; // error code
-              }
+              }  else {
+                    std::cerr << "Unable to open recordORTime.txt (openSTA and bnet)" << std::endl;
+                    return; // error code
+                }
             }
               
 
@@ -2465,12 +2470,13 @@ void RepairDesign::repairNet_update(Net* net,
               resize_count_ += resizer_->resizeToTargetSlew(drvr_pin);
             }
             auto repairEd = std::chrono::high_resolution_clock::now();
-            auto repairDuration = std::chrono::duration_cast<std::chrono::milliseconds>(repairEd - repairSt);
-            std::chrono::duration<double, std::milli> repairDuration_sec = repairDuration;
+            std::chrono::duration<double, std::milli> repairDuration = repairEd - repairSt;
+            // auto repairDuration = std::chrono::duration_cast<std::chrono::milliseconds>(repairEd - repairSt);
+            // std::chrono::duration<double, std::milli> repairDuration_sec = repairDuration;
             std::string runtime_file2 = std::getenv("TIMERSZ");
             std::ofstream file2(runtime_file2, std::ios::app);
             if (file2.is_open()) {
-                file2 << repairDuration_sec.count() << "\n";  
+                file2 << repairDuration.count() << ",";  
                 file2.close();
                 std::cout << "repairDuration appended to file successfully." << std::endl;
             } else {
@@ -2726,12 +2732,13 @@ void RepairDesign::makeRepeater_update(const char* reason,
   // testBufferedTree(repeater_in_pin,repeater_out_pin, in_net, out_net);
   // std::cout<<"End testing buffered tree...\n";
   auto createPostBTreeEt = std::chrono::high_resolution_clock::now();
-  auto createPostBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPostBTreeEt - createPostBTreeSt);
-  std::chrono::duration<double, std::milli> createPostBTreeDuration_sec = createPostBTreeDuration;
+  std::chrono::duration<double, std::milli> createPostBTreeDuration = createPostBTreeEt - createPostBTreeSt;
+  // auto createPostBTreeDuration = std::chrono::duration_cast<std::chrono::milliseconds>(createPostBTreeEt - createPostBTreeSt);
+  // std::chrono::duration<double, std::milli> createPostBTreeDuration_sec = createPostBTreeDuration;
   std::string runtime_file = std::getenv("TIMERSZ");
   std::ofstream file(runtime_file, std::ios::app);
   if (file.is_open()) {
-      file << createPostBTreeDuration_sec.count() <<"\n"; // Append the number and a newline
+      file << createPostBTreeDuration.count() <<",[postTreeTime],"; // Append the number and a newline
       file.close();
       std::cout << "createPostBTreeDuration appended to file successfully." << std::endl;
   } else {
