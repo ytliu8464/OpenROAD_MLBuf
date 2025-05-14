@@ -32,7 +32,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Debug controls: npinit, updateGrad, np, updateNextIter
-
+#include "ord/OpenRoad.hh" 
 #include "nesterovPlace.h"
 
 #include <iomanip>
@@ -442,6 +442,18 @@ int NesterovPlace::doNesterovPlace(int start_iter)
         && tb_->isTimingNetWeightOverflow(average_overflow_)) {
       // update db's instance location from current density coordinates
       updateDb();
+
+      //YL write def
+      if (auto* openroad = ord::OpenRoad::openRoad(); openroad != nullptr) {
+      static int dump_id = 0;
+      std::string def_name = fmt::format(
+          "gp_overflow_{:04d}_iter{}.def",
+          ++dump_id,
+          iter);
+      openroad->writeDef(def_name.c_str(), "");
+      } else {
+        log_->report("OpenRoad global pointer is null; cannot dump DEF.");
+      }
 
       // Call resizer's estimateRC API to fill in PEX using placed locations,
       // Call sta's API to extract worst timing paths,
