@@ -39,7 +39,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-
+#include <filesystem>
 #include "graphics.h"
 #include "nesterovBase.h"
 #include "odb/db.h"
@@ -444,13 +444,30 @@ int NesterovPlace::doNesterovPlace(int start_iter)
       updateDb();
 
       //YL write def
+      const std::string default_directory = "/home/fetzfs_projects/MLBuf/MLBuf_eval/OR_integration_for_erc/data/buffered_trees_data/";  
+
+      // User-defined directory
+      const char* env_dir = std::getenv("SAVE_DIR");
+      std::string save_directory = (env_dir != nullptr) ? std::string(env_dir) : default_directory;
+      
+      // Make sure the directory name is ended with '/'
+      if (save_directory.back() != '/') {
+        save_directory += "/";
+      }
+      
+      if (!std::filesystem::exists(save_directory)) {
+          std::filesystem::create_directories(save_directory);
+      }
+
       if (auto* openroad = ord::OpenRoad::openRoad(); openroad != nullptr) {
       static int dump_id = 0;
       std::string def_name = fmt::format(
-          "gp_overflow_{:04d}_iter{}.def",
+          "gp_overflow_{:04d}.def",
           ++dump_id,
           iter);
-      openroad->writeDef(def_name.c_str(), "");
+      std::string defFilePath = std::string(save_directory) + def_name;
+      openroad->writeDef(defFilePath.c_str(), "");
+      // openroad->writeDef(save_directory+def_name.c_str(), "");
       } else {
         log_->report("OpenRoad global pointer is null; cannot dump DEF.");
       }

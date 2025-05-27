@@ -400,7 +400,7 @@ class RepairDesign : dbStaState
   void saveBufferedTrees();
 
   std::string getCurrentTimestamp();
-  std::string generateUniqueFilename(const std::string& base_name);
+  std::string generateUniqueFilename(const std::string& base_name, size_t index);
 
   std::vector<BufferedTreePtr> buffered_trees_pre_;
   std::vector<BufferedTreePtr> buffered_trees_post_;
@@ -409,6 +409,8 @@ class RepairDesign : dbStaState
   bool store_buffered_trees_flag_ = false;
   int buffer_order_count_ = 0;
   // Recored the order of the inserted buffers
+
+  static inline size_t save_call_index_ = 0;  // for unique file name    
 
 };
 

@@ -162,7 +162,7 @@ void RepairDesign::repairDesign(
                         length_violations);
     // YL: store buffered trees
     saveBufferedTrees();
-    std::cout << "--------------Save buffered trees to the csv file----------------" << std::endl;
+    // std::cout << "--------------Save buffered trees to the csv file----------------" << std::endl;
     // std::cout << "Buffered Trees Pre Size (#net): " << buffered_trees_pre_.size() << std::endl;
     // std::cout << "Buffered Trees Post Size (#buffered net): " << buffered_trees_post_.size() << std::endl;
     // std::cout << "#buffered net (test): " << repaired_net_count << std::endl;
@@ -1054,6 +1054,7 @@ void RepairDesign::repairNet(const BufferedNetPtr& bnet,
                              int max_length,  // dbu
                              const Corner* corner)
 {
+  // std::cout << "[Check] truly enter repairNet "<<std::endl;
   drvr_pin_ = drvr_pin;
   max_cap_ = max_cap;
   max_length_ = max_length;
@@ -2184,9 +2185,9 @@ void RepairDesign::repairDesign_update(
       // To do: create a buffered tree to store the original net
       float max_cap = INF;
       createPreBufferedTree(net, drvr_pin, max_cap);
-      std::cout << "Begin Pre Tree Print\n";
+      // std::cout << "Begin Pre Tree Print\n";
       // buffered_trees_pre_.back()->printTree();
-      std::cout << "End Pre Tree Print\n";
+      // std::cout << "End Pre Tree Print\n";
       buffered_trees_post_.push_back(std::make_shared<BufferedTree>(*buffered_trees_pre_.back()));
       buffer_order_count_ = 0; // recored the order of the inserted buffers
       repairNet_update(net,
@@ -2365,10 +2366,10 @@ void RepairDesign::repairNet_update(Net* net,
     }
     if (repaired_net) {
       // buffered_trees_post_.push_back(buffered_tree_);
-      std::cout << "Begin Post Tree Print\n";
+      // std::cout << "Begin Post Tree Print\n";
       // buffered_trees_post_.back()->printTree();
       // buffered_tree_->printTree();
-      std::cout << "End Post Tree Print\n";
+      // std::cout << "End Post Tree Print\n";
       repaired_net_count++;
       std::cout << "------------Repaired net count------------- " << repaired_net_count << std::endl;
     }
@@ -3443,13 +3444,15 @@ bool RepairDesign::treeContainsBuffer(const BufferedTreePtr& tree) {
 
 // save
 void RepairDesign::saveBufferedTrees() {
+  ++save_call_index_;
+  const size_t fileNameId = save_call_index_;
   std::cout << "Total Trees (Pre Repair): " << buffered_trees_pre_.size() << std::endl;
   std::cout << "Total Trees (Post Repair) " << buffered_trees_post_.size() << std::endl;
   std::cout << "Total Trees (Mid Repair) " << buffered_trees_mid_.size() << std::endl;
 
-  std::string pre_filename = generateUniqueFilename("buffered_trees_pre");
-  std::string post_filename = generateUniqueFilename("buffered_trees_post");
-  std::string mid_filename = generateUniqueFilename("buffered_trees_mid");
+  std::string pre_filename = generateUniqueFilename("buffered_trees_pre", fileNameId);
+  std::string post_filename = generateUniqueFilename("buffered_trees_post", fileNameId);
+  std::string mid_filename = generateUniqueFilename("buffered_trees_mid", fileNameId);
 
   if (buffered_trees_pre_.size() > 0) {
     bool buffered_tree_print_flag = false;
@@ -3464,6 +3467,7 @@ void RepairDesign::saveBufferedTrees() {
   }
 
   if (buffered_trees_mid_.size() > 0) {
+    std::cout << "Mid tree size before save file " << buffered_trees_mid_.size() << std::endl;
     bool buffered_tree_print_flag = false;
     printTreeToCSV(buffered_trees_mid_, mid_filename, buffered_tree_print_flag);
     std::cout << "buffered_trees_mid saved to " << mid_filename << std::endl;
@@ -3489,7 +3493,7 @@ std::string RepairDesign::getCurrentTimestamp() {
     return oss.str();
 }
 
-std::string RepairDesign::generateUniqueFilename(const std::string& base_name) {
+std::string RepairDesign::generateUniqueFilename(const std::string& base_name, size_t fileNameId) {
   const std::string default_directory = "/home/fetzfs_projects/MLBuf/MLBuf_eval/OR_integration_for_erc/data/buffered_trees_data/";  
   
   // User-defined directory
@@ -3504,7 +3508,9 @@ std::string RepairDesign::generateUniqueFilename(const std::string& base_name) {
   if (!std::filesystem::exists(save_directory)) {
       std::filesystem::create_directories(save_directory);
   }
-  return save_directory + base_name + "_" + getCurrentTimestamp() + ".csv";
+
+  return save_directory + base_name + "_" + std::to_string(fileNameId) + ".csv";
+  //return save_directory + base_name + "_" + getCurrentTimestamp() + ".csv";
 }
 
 
