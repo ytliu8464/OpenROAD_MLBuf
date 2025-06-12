@@ -63,6 +63,7 @@ target_link_libraries(rsz_lib
     dbSta_lib
     grt_lib
     utl_lib
+    
 )
 
 target_link_libraries(rsz

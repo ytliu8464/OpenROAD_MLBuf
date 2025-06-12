@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (c) 2018-2025, The OpenROAD Authors
-
+#include "ord/OpenRoad.hh" // YL 
+#include "sta/VerilogWriter.hh" // YL
 #include "timingBase.h"
-
+#include <filesystem> // YL
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -118,6 +119,52 @@ void TimingBase::setTimingNetWeightMax(float max)
 bool TimingBase::executeTimingDriven(bool run_journal_restore)
 {
   rs_->findResizeSlacks(run_journal_restore);
+
+  // YL write DEF + verilog
+  const char* env_dir = std::getenv("SAVE_DEF_DIR");
+  std::string save_directory;
+
+  if (env_dir != nullptr) {
+    save_directory = env_dir;
+    // Make sure the directory name is ended with '/'
+    if (save_directory.back() != '/') {
+      save_directory += "/";
+    }
+  
+    if (!std::filesystem::exists(save_directory)) {
+        std::filesystem::create_directories(save_directory);
+    }
+
+    if (auto* openroad = ord::OpenRoad::openRoad(); openroad != nullptr) {
+    static int dump_id = 0;
+
+    // Dump DEF
+    std::string def_name = fmt::format(
+        "gp_repair_design_iter_{:04d}.def",
+        ++dump_id);
+    std::string defFilePath = std::string(save_directory) + def_name;
+    openroad->writeDef(defFilePath.c_str(), "");
+    log_->report("DEF dumped to {}", defFilePath);
+
+    // Dump Verilog
+    std::string verilog_name = fmt::format(
+        "gp_repair_design_iter_{:04d}.v",
+        dump_id);
+    std::string verilogFilePath = std::string(save_directory) + verilog_name;
+    sta::Network* network = openroad->getSta()->network();
+    sta::writeVerilog(
+        verilogFilePath.c_str(),
+        false,  // sort
+        true,  // include_pwr_gnd
+        nullptr,  // remove_cells
+        network);
+  
+    } else {
+      log_->report("OpenRoad global pointer is null; cannot dump DEF/Verilog.");
+    }
+  }
+
+
 
   if (!run_journal_restore) {
     nbc_->fixPointers();

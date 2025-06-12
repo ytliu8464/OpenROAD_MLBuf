@@ -3,6 +3,7 @@
 
 #include "rsz/Resizer.hh"
 
+
 #include <algorithm>
 #include <boost/functional/hash.hpp>
 #include <cmath>
@@ -2033,7 +2034,7 @@ void Resizer::findResizeSlacks(bool run_journal_restore)
                                           fanout_violations,
                                           length_violations,
                                           repaired_net_count);
-
+  
   findResizeSlacks1();
   if (run_journal_restore)
     journalRestore();
