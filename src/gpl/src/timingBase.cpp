@@ -4,6 +4,7 @@
 #include "sta/VerilogWriter.hh" // YL
 #include "timingBase.h"
 #include <filesystem> // YL
+#include <fstream> // YL
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -164,11 +165,61 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
     }
   }
 
+  // YL: save worst slack nets and their slack to file
+  const char* env_slack_save_dir = std::getenv("SAVE_SLACK_DIR");
+  if (env_slack_save_dir != nullptr) {
+    save_directory = env_slack_save_dir;
+    // Make sure the directory name is ended with '/'
+    if (save_directory.back() != '/') {
+      save_directory += "/";
+    }
+    static int dump_id = 0;
+ 
+    if (!std::filesystem::exists(save_directory)) {
+        std::filesystem::create_directories(save_directory);
+    }
+
+    // get worst resize nets
+    sta::NetSeq& worst_slack_nets_or = rs_->resizeWorstSlackNets();
+
+    std::string net_slack_file_name = fmt::format(
+        "net_slack_iter_{:04d}.tsv",
+        ++dump_id);
+    std::string slackFilePath = std::string(save_directory) + net_slack_file_name;
+    std::ofstream ofs(slackFilePath.c_str(), std::ios::app);
+    if (!ofs.is_open() || worst_slack_nets_or.empty()) {
+      if (!ofs.is_open()){
+        log_->report("Failed to open net_slack_file: {}", slackFilePath);
+      }
+      else if (worst_slack_nets_or.empty()) {
+        log_->report("No worst slack nets found. Skipping net slack save.");
+      }
+    }
+    else{
+      ofs << "# net_name\tdriver_slack_or\n";
+      for (const sta::Net* net : worst_slack_nets_or) {
+        // obtain net name
+        auto* openroad = ord::OpenRoad::openRoad();
+        auto* db_sta = openroad->getSta();
+        auto* db_network = db_sta->getDbNetwork();
+        odb::dbNet* db_net = db_network->staToDb(net);
+        std::string net_name = db_net->getName();
+        auto slack_value = rs_->resizeNetSlack(net).value();
+
+
+        // save to file
+        ofs << net_name << "\t" << slack_value << "\n";
+      }
+      ofs.close();
+      log_->report("Net slacks saved to {}", slackFilePath);
+    }
+  }
 
 
   if (!run_journal_restore) {
     nbc_->fixPointers();
   }
+
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();
@@ -180,6 +231,7 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
         "Timing-driven: no net slacks found. Timing-driven mode disabled.");
     return false;
   }
+
 
   // min/max slack for worst nets
   auto slack_min = rs_->resizeNetSlack(worst_slack_nets[0]).value();
