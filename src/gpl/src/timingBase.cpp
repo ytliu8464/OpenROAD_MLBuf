@@ -11,7 +11,10 @@
 #include <memory>
 #include <utility>
 #include <vector>
-
+#include <sstream> // YL
+#include <map> // YL
+#include <unordered_map> // YL
+#include <limits> // YL
 #include "nesterovBase.h"
 #include "placerBase.h"
 #include "rsz/Resizer.hh"
@@ -119,9 +122,14 @@ void TimingBase::setTimingNetWeightMax(float max)
 
 bool TimingBase::executeTimingDriven(bool run_journal_restore)
 {
-  rs_->findResizeSlacks(run_journal_restore);
+  rs_->findResizeSlacks(run_journal_restore); 
 
   // YL write DEF + verilog
+  static int iter_id = 0;
+  ++iter_id;
+  std::string def_name      = fmt::format("gp_repair_design_iter_{:04d}.def", iter_id);
+  std::string verilog_name  = fmt::format("gp_repair_design_iter_{:04d}.v",   iter_id);
+
   const char* env_dir = std::getenv("SAVE_DEF_DIR");
   std::string save_directory;
 
@@ -137,20 +145,11 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
     }
 
     if (auto* openroad = ord::OpenRoad::openRoad(); openroad != nullptr) {
-    static int dump_id = 0;
-
     // Dump DEF
-    std::string def_name = fmt::format(
-        "gp_repair_design_iter_{:04d}.def",
-        ++dump_id);
     std::string defFilePath = std::string(save_directory) + def_name;
     openroad->writeDef(defFilePath.c_str(), "");
     log_->report("DEF dumped to {}", defFilePath);
-
     // Dump Verilog
-    std::string verilog_name = fmt::format(
-        "gp_repair_design_iter_{:04d}.v",
-        dump_id);
     std::string verilogFilePath = std::string(save_directory) + verilog_name;
     sta::Network* network = openroad->getSta()->network();
     sta::writeVerilog(
@@ -173,20 +172,18 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
     if (save_directory.back() != '/') {
       save_directory += "/";
     }
-    static int dump_id = 0;
  
     if (!std::filesystem::exists(save_directory)) {
         std::filesystem::create_directories(save_directory);
     }
 
-    // get worst resize nets
-    sta::NetSeq& worst_slack_nets_or = rs_->resizeWorstSlackNets();
-
     std::string net_slack_file_name = fmt::format(
         "net_slack_iter_{:04d}.tsv",
-        ++dump_id);
+        iter_id);
     std::string slackFilePath = std::string(save_directory) + net_slack_file_name;
     std::ofstream ofs(slackFilePath.c_str(), std::ios::app);
+    // get worst resize nets
+    sta::NetSeq& worst_slack_nets_or = rs_->resizeWorstSlackNets();
     if (!ofs.is_open() || worst_slack_nets_or.empty()) {
       if (!ofs.is_open()){
         log_->report("Failed to open net_slack_file: {}", slackFilePath);
@@ -197,6 +194,17 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
     }
     else{
       ofs << "# net_name\tdriver_slack_or\n";
+      // for (auto& gNet : nbc_->getGNets()) {
+      //   odb::dbNet* db_net = gNet->net()->dbNet();
+      //   std::string net_name = db_net->getName();
+      //   auto net_slack_opt = rs_->resizeNetSlack(db_net);
+      //   if (!net_slack_opt) {
+      //     continue;
+      //   }
+      //   auto slack_value = net_slack_opt.value();
+      //   // save to file
+      //   ofs << net_name << "\t" << slack_value << "\n";
+      // }
       for (const sta::Net* net : worst_slack_nets_or) {
         // obtain net name
         auto* openroad = ord::OpenRoad::openRoad();
@@ -219,7 +227,49 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
   if (!run_journal_restore) {
     nbc_->fixPointers();
   }
+  
+  // YL: load Innovus slacks
+  const char* env_invs_slack_save_dir = std::getenv("INVS_SLACK_SAVE_DIR");
+  if (env_invs_slack_save_dir != nullptr) {
+    save_directory = env_invs_slack_save_dir;
+    // Make sure the directory name is ended with '/'
+    if (save_directory.back() != '/') {
+      save_directory += "/";
+    }
 
+    std::string invs_slack_file_name = fmt::format(
+        "invs_net_slack_iter_{:04d}.tsv",
+        iter_id);
+
+    // run invs
+    ::setenv("NETLIST_NAME",     verilog_name.c_str(),   /*overwrite=*/1);
+    ::setenv("DEF_NAME",         def_name.c_str(),       1);
+    ::setenv("SLACK_FILE_NAME",  invs_slack_file_name.c_str(), 1);  
+    const char* invs_script =
+      "/home/fetzfs_projects/MLBuf/new_project/timer_calibration/"
+      "invs_runs/jpeg_encoder/run_invs_slack.sh";
+
+    int ret = std::system(invs_script);      
+    if (ret != 0) {
+      log_->report("run_invs_slack.sh failed (exit code {})", ret);
+      return false; // YL: exit if invs slack calculation failed
+    }
+
+    //std::string invs_slack_file_name = "invs_net_slack_iter_0003.tsv"; // YL: use fixed name for now
+    std::string invsSlackFilePath = std::string(save_directory) + invs_slack_file_name;
+    const char* tsv_env = invsSlackFilePath.c_str();  
+
+    std::unordered_map<std::string, float> invs_slack_tbl;
+    if (!run_journal_restore && tsv_env != nullptr) {
+      // replace the slacks with those calculated by invs during actual buffering
+      bool use_invs_slack = false;
+      invs_slack_tbl = loadInvsSlacks(tsv_env);
+      use_invs_slack = !invs_slack_tbl.empty();
+      if (use_invs_slack){
+        rs_->findResizeSlacks1_update(invs_slack_tbl);
+      }
+    }
+  }
 
   // get worst resize nets
   sta::NetSeq& worst_slack_nets = rs_->resizeWorstSlackNets();
@@ -289,6 +339,52 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
              "Timing-driven: weighted {} nets.",
              weighted_net_count);
   return true;
+}
+
+// -----------------------------------------------
+// New functions for timer calibration
+// -----------------------------------------------
+
+/// Add '\' before '[' and ']' 
+static std::string escapeBrackets(const std::string& s)
+{
+  std::string out;
+  out.reserve(s.size() * 2);         
+  for (char c : s) {
+    if (c == '[' || c == ']')
+      out.push_back('\\');
+    out.push_back(c);
+  }
+  return out;
+}
+
+
+std::unordered_map<std::string, float>
+TimingBase::loadInvsSlacks(const std::string& tsv_path)
+{
+  std::unordered_map<std::string, float> map;
+  std::ifstream fin(tsv_path);
+  if (!fin) {
+    log_->report("Cannot open Innovus slack file '{}'", tsv_path);
+    return map;
+  }
+
+  std::string line;
+  while (std::getline(fin, line)) {
+    if (line.empty() || line[0] == '#')
+      continue;
+    std::istringstream iss(line);
+    std::string net;
+    float slack;
+    if (iss >> net >> slack) {
+      const std::string escaped_net = escapeBrackets(net);
+      map[escaped_net] = slack;        // last value wins on duplicates
+    }
+      
+  }
+
+  log_->report("Loaded {} slacks from '{}'", map.size(), tsv_path);
+  return map;
 }
 
 }  // namespace gpl

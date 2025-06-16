@@ -2073,6 +2073,79 @@ void Resizer::findResizeSlacks1()
   }
 }
 
+// -----------------------------------------------
+// New functions for timer calibration
+// -----------------------------------------------
+// YL
+static std::string escapeBrackets(const std::string& s)
+{
+  std::string out;
+  out.reserve(s.size() * 2);    
+  for (char c : s) {
+    if (c == '[' || c == ']')
+      out.push_back('\\');
+    out.push_back(c);
+  }
+  return out;
+}
+
+void Resizer::findResizeSlacks1_update(const std::unordered_map<std::string, float>& invs_slack_tbl)
+{
+  // Use driver pin slacks rather than Sta::netSlack to save visiting
+  // the net pins and min'ing the slack.
+  std::cout << "Enter findResizeSlacks1_update..." << std::endl;
+  net_slack_map_.clear();
+  NetSeq nets;
+  for (int i = level_drvr_vertices_.size() - 1; i >= 0; i--) {
+    Vertex* drvr = level_drvr_vertices_[i];
+    Pin* drvr_pin = drvr->pin();
+    Net* net = network_->isTopLevelPort(drvr_pin)
+                   ? network_->net(network_->term(drvr_pin))
+                   : network_->net(drvr_pin);
+    if (net
+        && !drvr->isConstant()
+        // Hands off special nets.
+        && !db_network_->isSpecial(net) && !sta_->isClock(drvr_pin)) {
+      dbNet* db_net = db_network_->staToDb(net);
+      std::string net_name_str = db_net->getName();
+      auto it = invs_slack_tbl.find(net_name_str);
+      // If the net name is not found in the invs_slack_tbl, check if it has brackets, and if so, escape them and try again.
+      if (it == invs_slack_tbl.end()
+        && (net_name_str.find('[') != std::string::npos
+            || net_name_str.find(']') != std::string::npos)) {
+      std::string escaped_name = escapeBrackets(net_name_str);
+      it = invs_slack_tbl.find(escaped_name);
+      }
+      if (it != invs_slack_tbl.end()) {
+        // Use the slack from the invs_slack_tbl
+        net_slack_map_[net] = static_cast<Slack>(it->second);
+        nets.emplace_back(net);
+      } 
+      else{
+        logger_->report("Warning: No slack found for net {} in invs_slack_tbl",
+                        net_name_str);
+        net_slack_map_[net] = sta_->vertexSlack(drvr, max_);
+        nets.emplace_back(net);
+      }
+      
+    }
+  }
+
+  // Find the nets with the worst slack.
+
+  //  sort(nets.begin(), nets.end(). [&](const Net *net1,
+  sort(nets, [this](const Net* net1, const Net* net2) {
+    return resizeNetSlack(net1) < resizeNetSlack(net2);
+  });
+  worst_slack_nets_.clear();
+  for (int i = 0; i < nets.size() * worst_slack_nets_percent_ / 100.0; i++) {
+    worst_slack_nets_.emplace_back(nets[i]);
+  }
+}
+
+
+////////////////////////////////////////////////////////////////
+
 NetSeq& Resizer::resizeWorstSlackNets()
 {
   return worst_slack_nets_;

@@ -401,6 +401,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
   void findResizeSlacks(bool run_journal_restore);
   // Return nets with worst slack.
   NetSeq& resizeWorstSlackNets();
+
   // Return net slack, if any (indicated by the bool).
   std::optional<Slack> resizeNetSlack(const Net* net);
   // db flavor
@@ -440,6 +441,8 @@ class Resizer : public dbStaState, public dbNetworkObserver
 
   static MoveType parseMove(const std::string& s);
   static std::vector<MoveType> parseMoveSequence(const std::string& sequence);
+  // YL
+  void findResizeSlacks1_update(const std::unordered_map<std::string, float>& invs_slack_tbl);
 
  protected:
   void init();
@@ -645,6 +648,7 @@ class Resizer : public dbStaState, public dbNetworkObserver
                    bool journal);
 
   void findResizeSlacks1();
+
   bool removeBufferIfPossible(Instance* buffer,
                               bool honorDontTouchFixed = true,
                               bool recordJournal = false);

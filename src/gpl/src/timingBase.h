@@ -47,6 +47,9 @@ class TimingBase
   // False: no slacks found
   bool executeTimingDriven(bool run_journal_restore);
 
+  // YL
+  std::unordered_map<std::string, float> loadInvsSlacks(const std::string& tsv_path);
+
  private:
   rsz::Resizer* rs_ = nullptr;
   utl::Logger* log_ = nullptr;
