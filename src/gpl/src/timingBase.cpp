@@ -132,6 +132,8 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
 
   const char* env_dir = std::getenv("SAVE_DEF_DIR");
   std::string save_directory;
+  std::string verilogFilePath;
+  std::string defFilePath;
 
   if (env_dir != nullptr) {
     save_directory = env_dir;
@@ -146,11 +148,11 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
 
     if (auto* openroad = ord::OpenRoad::openRoad(); openroad != nullptr) {
     // Dump DEF
-    std::string defFilePath = std::string(save_directory) + def_name;
+    defFilePath = std::string(save_directory) + def_name;
     openroad->writeDef(defFilePath.c_str(), "");
     log_->report("DEF dumped to {}", defFilePath);
     // Dump Verilog
-    std::string verilogFilePath = std::string(save_directory) + verilog_name;
+    verilogFilePath = std::string(save_directory) + verilog_name;
     sta::Network* network = openroad->getSta()->network();
     sta::writeVerilog(
         verilogFilePath.c_str(),
@@ -181,7 +183,7 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
         "net_slack_iter_{:04d}.tsv",
         iter_id);
     std::string slackFilePath = std::string(save_directory) + net_slack_file_name;
-    std::ofstream ofs(slackFilePath.c_str(), std::ios::app);
+    std::ofstream ofs(slackFilePath.c_str());
     // get worst resize nets
     sta::NetSeq& worst_slack_nets_or = rs_->resizeWorstSlackNets();
     if (!ofs.is_open() || worst_slack_nets_or.empty()) {
@@ -237,14 +239,22 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
       save_directory += "/";
     }
 
+    if (!std::filesystem::exists(save_directory)) {
+      std::filesystem::create_directories(save_directory);
+    }
+
     std::string invs_slack_file_name = fmt::format(
         "invs_net_slack_iter_{:04d}.tsv",
         iter_id);
+    
+    //std::string invs_slack_file_name = "invs_net_slack_iter_0003.tsv"; // YL: use fixed name for now
+    std::string invsSlackFilePath = std::string(save_directory) + invs_slack_file_name;
+    const char* tsv_env = invsSlackFilePath.c_str();  
 
     // run invs
-    ::setenv("NETLIST_NAME",     verilog_name.c_str(),   /*overwrite=*/1);
-    ::setenv("DEF_NAME",         def_name.c_str(),       1);
-    ::setenv("SLACK_FILE_NAME",  invs_slack_file_name.c_str(), 1);  
+    ::setenv("NETLIST_NAME",     verilogFilePath.c_str(),   /*overwrite=*/1);
+    ::setenv("DEF_NAME",         defFilePath.c_str(),       1);
+    ::setenv("SLACK_FILE_NAME",  invsSlackFilePath.c_str(), 1);  
     const char* invs_script =
       "/home/fetzfs_projects/MLBuf/new_project/timer_calibration/"
       "invs_runs/jpeg_encoder/run_invs_slack.sh";
@@ -255,9 +265,6 @@ bool TimingBase::executeTimingDriven(bool run_journal_restore)
       return false; // YL: exit if invs slack calculation failed
     }
 
-    //std::string invs_slack_file_name = "invs_net_slack_iter_0003.tsv"; // YL: use fixed name for now
-    std::string invsSlackFilePath = std::string(save_directory) + invs_slack_file_name;
-    const char* tsv_env = invsSlackFilePath.c_str();  
 
     std::unordered_map<std::string, float> invs_slack_tbl;
     if (!run_journal_restore && tsv_env != nullptr) {
@@ -378,6 +385,7 @@ TimingBase::loadInvsSlacks(const std::string& tsv_path)
     float slack;
     if (iss >> net >> slack) {
       const std::string escaped_net = escapeBrackets(net);
+      slack /= 1e9; // convert from ns to s
       map[escaped_net] = slack;        // last value wins on duplicates
     }
       
